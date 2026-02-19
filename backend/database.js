@@ -12,12 +12,13 @@ const db = new sqlite3.Database(path.join(__dirname, 'transaction.db'), (err) =>
 
 function initializeDatabase() {
   db.serialize(() => {
-    // Clients table
+    // Clients table with password
     db.run(`
       CREATE TABLE IF NOT EXISTS clients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
         is_admin INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -48,12 +49,13 @@ function initializeDatabase() {
       )
     `);
 
-    // Orders table
+    // Orders table with note field
     db.run(`
       CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         client_id INTEGER NOT NULL,
         amount REAL NOT NULL,
+        note TEXT,
         status TEXT DEFAULT 'pending',
         fulfillment_id TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -79,25 +81,30 @@ function initializeSampleData() {
       
       // Insert admin user
       db.run(`
-        INSERT INTO clients (name, email, is_admin) 
-        VALUES ('Admin User', 'admin@example.com', 1)
+        INSERT INTO clients (name, email, password, is_admin) 
+        VALUES ('Admin User', 'admin@example.com', 'admin123', 1)
       `, function(err) {
         if (err) return console.error('Error creating admin:', err);
         const adminId = this.lastID;
-        db.run('INSERT INTO wallets (client_id, balance) VALUES (?, 0)', [adminId]);
+        db.run('INSERT INTO wallets (client_id, balance) VALUES (?, 5000)', [adminId]);
+        db.run(
+          'INSERT INTO ledger_entries (client_id, transaction_type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
+          [adminId, 'credit', 5000, 5000, 'Initial balance']
+        );
       });
 
-      // Insert sample clients
+      // Insert sample clients (Khushi, Pareen, Heet, Tirth)
       const clients = [
-        { name: 'John Doe', email: 'john@example.com' },
-        { name: 'Jane Smith', email: 'jane@example.com' },
-        { name: 'Bob Johnson', email: 'bob@example.com' }
+        { name: 'Khushi', email: 'khushi@example.com', password: 'khushi123' },
+        { name: 'Pareen', email: 'pareen@example.com', password: 'pareen123' },
+        { name: 'Heet', email: 'heet@example.com', password: 'heet123' },
+        { name: 'Tirth', email: 'tirth@example.com', password: 'tirth123' }
       ];
 
       clients.forEach(client => {
         db.run(
-          'INSERT INTO clients (name, email, is_admin) VALUES (?, ?, 0)',
-          [client.name, client.email],
+          'INSERT INTO clients (name, email, password, is_admin) VALUES (?, ?, ?, 0)',
+          [client.name, client.email, client.password],
           function(err) {
             if (err) return console.error('Error creating client:', err);
             const clientId = this.lastID;
@@ -111,7 +118,7 @@ function initializeSampleData() {
         );
       });
 
-      console.log('Sample data initialized');
+      console.log('Sample data initialized with Khushi, Pareen, Heet, and Tirth');
     }
   });
 }

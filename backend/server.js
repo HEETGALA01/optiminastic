@@ -133,7 +133,7 @@ app.post('/admin/wallet/debit', async (req, res) => {
 app.post('/orders', async (req, res) => {
   try {
     const clientId = req.headers['client-id'];
-    const { amount } = req.body;
+    const { amount, note } = req.body;
 
     if (!clientId) {
       return res.status(400).json({ error: 'client-id header is required' });
@@ -167,16 +167,17 @@ app.post('/orders', async (req, res) => {
     await dbRun('UPDATE wallets SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE client_id = ?', 
       [newBalance, clientId]);
 
-    // Create ledger entry
+    // Create ledger entry with note
+    const ledgerDescription = note ? `Order payment - ${note}` : 'Order payment';
     await dbRun(
       'INSERT INTO ledger_entries (client_id, transaction_type, amount, balance_after, description) VALUES (?, ?, ?, ?, ?)',
-      [clientId, 'debit', amount, newBalance, 'Order payment']
+      [clientId, 'debit', amount, newBalance, ledgerDescription]
     );
 
-    // Create order
+    // Create order with note
     const orderResult = await dbRun(
-      'INSERT INTO orders (client_id, amount, status) VALUES (?, ?, ?)',
-      [clientId, amount, 'pending']
+      'INSERT INTO orders (client_id, amount, note, status) VALUES (?, ?, ?, ?)',
+      [clientId, amount, note || null, 'pending']
     );
 
     const orderId = orderResult.lastID;
@@ -208,6 +209,7 @@ app.post('/orders', async (req, res) => {
       order: {
         id: orderId,
         client_id: clientId,
+        note: note || null,
         amount,
         status: fulfillmentId ? 'fulfilled' : 'fulfillment_failed',
         fulfillment_id: fulfillmentId,
@@ -245,6 +247,7 @@ app.get('/orders/:order_id', async (req, res) => {
       order: {
         id: order.id,
         client_id: order.client_id,
+        note: order.note,
         amount: order.amount,
         status: order.status,
         fulfillment_id: order.fulfillment_id,
@@ -287,7 +290,38 @@ app.get('/wallet/balance', async (req, res) => {
 
 // ========== HELPER ENDPOINTS ==========
 
-// Get all clients (for frontend dropdown)
+// Login endpoint
+app.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const client = await dbGet('SELECT id, name, email, is_admin FROM clients WHERE email = ? AND password = ?', [email, password]);
+    
+    if (!client) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        is_admin: client.is_admin
+      },
+      message: 'Login successful'
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get all clients (for frontend dropdown) - requires authentication
 app.get('/clients', async (req, res) => {
   try {
     const clients = await dbAll('SELECT id, name, email, is_admin FROM clients');
@@ -337,6 +371,7 @@ app.get('/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`\n🚀 Transaction System Backend running on http://localhost:${PORT}`);
   console.log(`\n📋 Available endpoints:`);
+  console.log(`   POST   /auth/login`);
   console.log(`   POST   /admin/wallet/credit`);
   console.log(`   POST   /admin/wallet/debit`);
   console.log(`   POST   /orders`);
@@ -345,5 +380,11 @@ app.listen(PORT, () => {
   console.log(`   GET    /clients`);
   console.log(`   GET    /client/:client_id/orders`);
   console.log(`   GET    /client/:client_id/ledger`);
+  console.log(`\n🔐 Login Credentials:`);
+  console.log(`   Admin: admin@example.com / admin123`);
+  console.log(`   Khushi: khushi@example.com / khushi123`);
+  console.log(`   Pareen: pareen@example.com / pareen123`);
+  console.log(`   Heet: heet@example.com / heet123`);
+  console.log(`   Tirth: tirth@example.com / tirth123`);
   console.log(`\n`);
 });
