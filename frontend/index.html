@@ -3,17 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Transaction System</title>
+  <title>Transaction System - Secure Login</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
+  <!-- Login Screen -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-container">
+      <div class="login-card">
+        <h1>🔐 Transaction System</h1>
+        <p class="login-subtitle">Secure Wallet Management</p>
+        
+        <form id="login-form" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label>📧 Email Address</label>
+            <input type="email" id="login-email" class="form-control" placeholder="Enter your email" required>
+          </div>
+          
+          <div class="form-group">
+            <label>🔒 Password</label>
+            <input type="password" id="login-password" class="form-control" placeholder="Enter your password" required>
+          </div>
+          
+          <button type="submit" class="btn btn-primary btn-block">Login</button>
+          
+          <div id="login-error" class="error-message"></div>
+        </form>
+
+        <div class="login-info">
+          <p><strong>Demo Accounts:</strong></p>
+          <p>👨‍💼 Admin: admin@example.com / admin123</p>
+          <p>👤 Khushi: khushi@example.com / khushi123</p>
+          <p>👤 Pareen: pareen@example.com / pareen123</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Application (Hidden until login) -->
+  <div id="main-app" class="container" style="display: none;">
     <header>
       <h1>💰 Transaction System</h1>
-      <p>Wallet Management & Order Processing</p>
+      <div class="user-info-bar">
+        <span id="user-display">Welcome, <strong id="username"></strong></span>
+        <button onclick="handleLogout()" class="btn btn-secondary btn-sm">Logout</button>
+      </div>
     </header>
 
-    <div class="tabs">
+    <div class="tabs" id="tabs-container">
       <button class="tab-btn active" onclick="showTab('admin')">Admin Panel</button>
       <button class="tab-btn" onclick="showTab('client')">Client Panel</button>
     </div>
@@ -23,7 +60,13 @@
       <h2>Admin Operations</h2>
       
       <div class="card">
-        <h3>💵 Credit Wallet</h3>
+        <h3>� Client Wallets Overview</h3>
+        <button onclick="loadClientWallets()" class="btn btn-secondary">Refresh Wallets</button>
+        <div id="client-wallets-list" class="list-container"></div>
+      </div>
+
+      <div class="card">
+        <h3>�💵 Credit Wallet</h3>
         <form id="credit-form">
           <div class="form-group">
             <label>Client:</label>
@@ -83,8 +126,12 @@
           <h3>🛒 Create Order</h3>
           <form id="order-form">
             <div class="form-group">
-              <label>Order Amount:</label>
+              <label>Amount:</label>
               <input type="number" id="order-amount" step="0.01" min="0.01" required>
+            </div>
+            <div class="form-group">
+              <label>Note:</label>
+              <input type="text" id="order-note" placeholder="e.g., Purchase laptop, Monthly subscription">
             </div>
             <button type="submit" class="btn btn-primary">Create Order</button>
           </form>

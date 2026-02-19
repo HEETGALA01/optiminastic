@@ -1,22 +1,96 @@
 const API_URL = 'http://localhost:3000';
 
+let currentUser = null;
 let currentClientId = null;
 let clients = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  loadClients();
-  setupEventListeners();
+  // Check if user is already logged in
+  const storedUser = sessionStorage.getItem('currentUser');
+  if (storedUser) {
+    currentUser = JSON.parse(storedUser);
+    showMainApp();
+  }
 });
+
+// Handle Login
+async function handleLogin(event) {
+  event.preventDefault();
+  
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const errorDiv = document.getElementById('login-error');
+  
+  errorDiv.textContent = '';
+  
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      currentUser = data.user;
+      sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+      showMainApp();
+    } else {
+      errorDiv.textContent = '❌ ' + data.error;
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    errorDiv.textContent = '❌ Network error. Please try again.';
+  }
+}
+
+// Handle Logout
+function handleLogout() {
+  sessionStorage.removeItem('currentUser');
+  currentUser = null;
+  currentClientId = null;
+  location.reload();
+}
+
+// Show main application after login
+function showMainApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
+  document.getElementById('username').textContent = currentUser.name;
+  
+  currentClientId = currentUser.id;
+  
+  // Show appropriate panel based on user type
+  if (currentUser.is_admin) {
+    document.getElementById('client-panel').style.display = 'none';
+    document.getElementById('admin-panel').style.display = 'block';
+    loadClients();
+    setupEventListeners();
+  } else {
+    document.getElementById('admin-panel').style.display = 'none';
+    document.getElementById('tabs-container').style.display = 'none';
+    document.getElementById('client-panel').style.display = 'block';
+    document.getElementById('client-info').style.display = 'block';
+    // Hide client selector for regular clients
+    document.querySelector('#client-panel .card:first-child').style.display = 'none';
+    loadClientData();
+    setupEventListeners();
+  }
+}
 
 function setupEventListeners() {
   // Admin forms
-  document.getElementById('credit-form').addEventListener('submit', handleCreditWallet);
-  document.getElementById('debit-form').addEventListener('submit', handleDebitWallet);
+  const creditForm = document.getElementById('credit-form');
+  const debitForm = document.getElementById('debit-form');
+  if (creditForm) creditForm.addEventListener('submit', handleCreditWallet);
+  if (debitForm) debitForm.addEventListener('submit', handleDebitWallet);
   
   // Client forms
   document.getElementById('order-form').addEventListener('submit', handleCreateOrder);
-  document.getElementById('order-details-form').addEventListener('submit', handleGetOrderDetails);
+  const orderDetailsForm = document.getElementById('order-details-form');
+  if (orderDetailsForm) orderDetailsForm.addEventListener('submit', handleGetOrderDetails);
 }
 
 // Tab switching
@@ -37,10 +111,44 @@ async function loadClients() {
     if (data.success) {
       clients = data.clients;
       populateClientDropdowns();
+      loadClientWallets();
     }
   } catch (error) {
     console.error('Error loading clients:', error);
     showResult('admin-result', 'Error loading clients', 'error');
+  }
+}
+
+// Load client wallets for admin view
+async function loadClientWallets() {
+  try {
+    const nonAdminClients = clients.filter(c => c.is_admin === 0);
+    const walletPromises = nonAdminClients.map(async (client) => {
+      const response = await fetch(`${API_URL}/wallet/balance`, {
+        headers: { 'client-id': client.id }
+      });
+      const data = await response.json();
+      return {
+        ...client,
+        balance: data.success ? data.balance : 0
+      };
+    });
+    
+    const clientsWithBalances = await Promise.all(walletPromises);
+    
+    const walletsHtml = clientsWithBalances.map(client => `
+      <div class="list-item">
+        <div class="list-item-info">
+          <div class="list-item-title">${client.name}</div>
+          <div class="list-item-detail">${client.email}</div>
+        </div>
+        <span class="balance-amount" style="font-size: 1.2rem; font-weight: bold; color: #28a745;">$${client.balance.toFixed(2)}</span>
+      </div>
+    `).join('');
+    
+    document.getElementById('client-wallets-list').innerHTML = walletsHtml || '<p style="text-align: center; color: #6c757d; padding: 20px;">No clients found</p>';
+  } catch (error) {
+    console.error('Error loading client wallets:', error);
   }
 }
 
@@ -86,6 +194,7 @@ async function handleCreditWallet(e) {
         'success'
       );
       document.getElementById('credit-form').reset();
+      loadClientWallets();
     } else {
       showResult('admin-result', `❌ Error: ${data.error}`, 'error');
     }
@@ -117,6 +226,7 @@ async function handleDebitWallet(e) {
         'success'
       );
       document.getElementById('debit-form').reset();
+      loadClientWallets();
     } else {
       showResult('admin-result', `❌ Error: ${data.error}`, 'error');
     }
@@ -128,8 +238,13 @@ async function handleDebitWallet(e) {
 
 // Load client data when selected
 function loadClientData() {
-  currentClientId = document.getElementById('selected-client').value;
+  // If called from dropdown, update currentClientId
+  const dropdown = document.getElementById('selected-client');
+  if (dropdown && dropdown.value) {
+    currentClientId = dropdown.value;
+  }
   
+  // Load data if we have a client ID (from login or dropdown)
   if (currentClientId) {
     document.getElementById('client-info').style.display = 'block';
     refreshBalance();
@@ -167,6 +282,7 @@ async function handleCreateOrder(e) {
   e.preventDefault();
   
   const amount = parseFloat(document.getElementById('order-amount').value);
+  const note = document.getElementById('order-note').value.trim();
   
   try {
     const response = await fetch(`${API_URL}/orders`, {
@@ -175,20 +291,20 @@ async function handleCreateOrder(e) {
         'Content-Type': 'application/json',
         'client-id': currentClientId
       },
-      body: JSON.stringify({ amount })
+      body: JSON.stringify({ amount, note })
     });
     
     const data = await response.json();
     
     if (data.success) {
-      const order = data.order;
+      const noteText = data.order.note ? `<br>Note: ${data.order.note}` : '';
       showResult('client-result', 
         `✅ Order created successfully!<br>
-        Order ID: ${order.id}<br>
-        Amount: $${order.amount.toFixed(2)}<br>
-        Status: ${order.status}<br>
-        Fulfillment ID: ${order.fulfillment_id || 'N/A'}<br>
-        New Balance: $${order.wallet_balance.toFixed(2)}`, 
+        Order ID: ${data.order.id}<br>
+        Amount: $${data.order.amount.toFixed(2)}<br>
+        Status: ${data.order.status}<br>
+        Fulfillment ID: ${data.order.fulfillment_id || 'N/A'}<br>
+        New Balance: $${data.order.wallet_balance.toFixed(2)}${noteText}`, 
         'success'
       );
       document.getElementById('order-form').reset();
@@ -254,6 +370,7 @@ async function loadOrders() {
       const ordersHtml = data.orders.length > 0 
         ? data.orders.map(order => `
             <div class="list-item">
+              ${order.note ? `<div class="list-item-note">📝 ${order.note}</div>` : ''}
               <div class="list-item-info">
                 <div class="list-item-title">Order #${order.id}</div>
                 <div class="list-item-detail">Amount: $${order.amount.toFixed(2)} | Fulfillment: ${order.fulfillment_id || 'N/A'}</div>
