@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transaction System</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>💰 Transaction System</h1>
+      <p>Wallet Management & Order Processing</p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('admin')">Admin Panel</button>
+      <button class="tab-btn" onclick="showTab('client')">Client Panel</button>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div id="admin-panel" class="panel active">
+      <h2>Admin Operations</h2>
+      
+      <div class="card">
+        <h3>💵 Credit Wallet</h3>
+        <form id="credit-form">
+          <div class="form-group">
+            <label>Client:</label>
+            <select id="credit-client" required>
+              <option value="">Select client...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount:</label>
+            <input type="number" id="credit-amount" step="0.01" min="0.01" required>
+          </div>
+          <button type="submit" class="btn btn-success">Credit Wallet</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>💸 Debit Wallet</h3>
+        <form id="debit-form">
+          <div class="form-group">
+            <label>Client:</label>
+            <select id="debit-client" required>
+              <option value="">Select client...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount:</label>
+            <input type="number" id="debit-amount" step="0.01" min="0.01" required>
+          </div>
+          <button type="submit" class="btn btn-danger">Debit Wallet</button>
+        </form>
+      </div>
+
+      <div id="admin-result" class="result"></div>
+    </div>
+
+    <!-- CLIENT PANEL -->
+    <div id="client-panel" class="panel">
+      <h2>Client Operations</h2>
+
+      <div class="card">
+        <h3>👤 Select Client</h3>
+        <div class="form-group">
+          <select id="selected-client" onchange="loadClientData()">
+            <option value="">Select client...</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="client-info" style="display: none;">
+        <div class="card balance-card">
+          <h3>💳 Wallet Balance</h3>
+          <div id="balance-display" class="balance-amount">$0.00</div>
+          <button onclick="refreshBalance()" class="btn btn-secondary">Refresh Balance</button>
+        </div>
+
+        <div class="card">
+          <h3>🛒 Create Order</h3>
+          <form id="order-form">
+            <div class="form-group">
+              <label>Order Amount:</label>
+              <input type="number" id="order-amount" step="0.01" min="0.01" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Order</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>📦 My Orders</h3>
+          <button onclick="loadOrders()" class="btn btn-secondary">Refresh Orders</button>
+          <div id="orders-list" class="list-container"></div>
+        </div>
+
+        <div class="card">
+          <h3>🔍 Get Order Details</h3>
+          <form id="order-details-form">
+            <div class="form-group">
+              <label>Order ID:</label>
+              <input type="number" id="order-id-input" min="1" required>
+            </div>
+            <button type="submit" class="btn btn-secondary">Get Details</button>
+          </form>
+          <div id="order-details" class="result"></div>
+        </div>
+
+        <div class="card">
+          <h3>📋 Transaction Ledger</h3>
+          <button onclick="loadLedger()" class="btn btn-secondary">View Ledger</button>
+          <div id="ledger-list" class="list-container"></div>
+        </div>
+      </div>
+
+      <div id="client-result" class="result"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
